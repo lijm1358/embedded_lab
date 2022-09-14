@@ -1,0 +1,15 @@
+"D:\IAR Systems\Embedded Workbench 9.1\arm\bin\armPROC.dll" 
+
+"D:\IAR Systems\Embedded Workbench 9.1\arm\bin\armJLINK.dll" 
+
+"C:\Users\lijm1\Desktop\project_test\Debug\Exe\test.out" 
+
+--plugin="D:\IAR Systems\Embedded Workbench 9.1\arm\bin\armbat.dll" 
+
+--device_macro="D:\IAR Systems\Embedded Workbench 9.1\arm/config/debugger/ST/STM32F1xx.dmac" 
+
+--flash_loader="D:\IAR Systems\Embedded Workbench 9.1\arm/config/flashloader/ST/FlashSTM32F105xC.board" 
+
+
+
+
