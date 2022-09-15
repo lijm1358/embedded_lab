@@ -12,7 +12,7 @@ int main(void)
   *((volatile unsigned int*) 0x40021018) &= ~0x000000FF;
   *((volatile unsigned int*) 0x40021018) |= (0x3<<4);
     
-  // GPIO_CRL (Æ÷Æ® ¼¼ÆÃ)
+  // GPIO_CRL (í¬íŠ¸ ì„¸íŒ…)
   // led
   *((volatile unsigned int*) 0x40011400) &= 0x00000000;
   *((volatile unsigned int*) 0x40011400) = 0x30033300;
@@ -25,26 +25,26 @@ int main(void)
   
   while(1) {
     if(!( *((volatile unsigned int*) 0x40011008) & UP)) {
-      // GPIO_BSRR (ºÒ ÄÑ±â)
+      // GPIO_BSRR (ë¶ˆ ì¼œê¸°)
       *((volatile unsigned int*) 0x40011410) &= ~0x00000004;
       *((volatile unsigned int*) 0x40011410) |= ( 0x0C );
       printf("up");
       // *((volatile unsigned int*) 0x40011008) &= ~0x0000FFFF;
     }
     else if(!( *((volatile unsigned int*) 0x40011008) & DOWN)) {
-      // GPIO_BSRR (ºÒ ÄÑ±â)
+      // GPIO_BSRR (ë¶ˆ ì¼œê¸°)
       *((volatile unsigned int*) 0x40011414) &= ~0x00000004;
       *((volatile unsigned int*) 0x40011414) |= ( 0x0C );
       printf("down");
     }
     else if(!( *((volatile unsigned int*) 0x40011008) & RIGHT)) {
-      // GPIO_BSRR (ºÒ ÄÑ±â)
+      // GPIO_BSRR (ë¶ˆ ì¼œê¸°)
       *((volatile unsigned int*) 0x40011410) &= ~0x00000004;
       *((volatile unsigned int*) 0x40011410) |= ( 0x90 );
       printf("right");
     }
     else if(!( *((volatile unsigned int*) 0x40011008) & LEFT)) {
-      // GPIO_BSRR (ºÒ ÄÑ±â)
+      // GPIO_BSRR (ë¶ˆ ì¼œê¸°)
       *((volatile unsigned int*) 0x40011414) &= ~0x00000004;
       *((volatile unsigned int*) 0x40011414) |= ( 0x90 );
       printf("left");
