@@ -205,7 +205,6 @@ int main() {
     while (1) {
 		//@TODO - 13: Send the message when button is pressed
 		if( !(GPIOD->IDR & GPIO_IDR_IDR11)) {
-                    char* temp = msg;
                     for(int i=0; msg[i]!='\0'; i++) {
                         SendData(msg[i]);
                     }
