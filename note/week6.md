@@ -37,8 +37,8 @@ void RCC_Configure(void)
 ```
 * `RCC_APB2PeriphClockCmd`을 이용해 APB2 클락을 활성화해야 한다.
 * `RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);`을 통해, 원하는 포트와 ENABLE을 이용하여, 해당 포트에 APB2 clock을 초기화해야함을 알 수 있었다.
-* `RCC_APB2Periph_AFIO`의 definition으로 이동하여 APB2_peripheral 목록을 확인할 수 있었고, 해당 목록에서 필요한 GPIOx포트나 USART1을 찾아 clock을 초기화했다.
-![](mdimage/6.png)
+* `RCC_APB2Periph_AFIO`의 definition으로 이동하여 APB2_peripheral 목록을 확인할 수 있었고, 해당 목록에서 필요한 GPIOx포트나 USART1을 찾아 clock을 초기화했다.  
+![](mdimage/6.png)  
 ### 2_2. GPIO 설정
 ``` C
 void GPIO_Configure(void)
@@ -84,8 +84,8 @@ void GPIO_Configure(void)
 * 레지스터를 이용해 GPIO를 설정할 때는 GPIOx_CRL, CRH를 이용해 원하는 핀 번호에 해당하는 field를 찾아 input, output 모드를 설정해야 했음.
 * TODO 주석 설명에 따라, `GPIO_InitTypeDef` 구조체로 GPIO 설정을 한 뒤, `GPIO_Init`으로 GPIO 초기화를 진행하는 것으로 보였다. 
 * 기존에 있던 LED pin setting 코드를 기반으로, 조이스틱과 버튼에 대한 GPIO설정을 진행했다. 조이스틱의 경우 down은 Pin2번, up은 pin 5번이고, 버튼은 pin11번이므로 `GPIO_Pin`을 `GPIO_Pin_2 | GPIO_Pin_5` 및 `GPIO_Pin_11`으로 설정했다. 
-* 또한, 조이스틱과 버튼은 모두 입력 모드를 사용해야 하므로 Input with Pullup, Pulldown을 설정해야 한다. `GPIO_Mode_Out_PP`의 definition으로 이동해보니, Output push pull외에도 다른 mode를 설정할 수 있었고 그 중 input pullup, pulldown에 해당하는 `GPIO_Mode_IPD, GPIO_Mode_IPU`를 사용했다.
-![](mdimage/7.png)
+* 또한, 조이스틱과 버튼은 모두 입력 모드를 사용해야 하므로 Input with Pullup, Pulldown을 설정해야 한다. `GPIO_Mode_Out_PP`의 definition으로 이동해보니, Output push pull외에도 다른 mode를 설정할 수 있었고 그 중 input pullup, pulldown에 해당하는 `GPIO_Mode_IPD, GPIO_Mode_IPU`를 사용했다.  
+![](mdimage/7.png)  
 * 이후 GPIO_Init()을 이용해 GPIO를 초기화하는데, LED 핀 초기화에서 사용하는 방법대로 첫 번째 매개변수는 GPIOx, 두 번째 매개변수로는 `GPIO_InitTypeDef`구조체의 주소를 넘겨줘서 진행하는 것을 알 수 있었다.
 * UART TX, RX도 저번 주차에 나왔던 UART설정대로 진행했다.
 ### 2_3. EXTI 설정
@@ -149,13 +149,13 @@ void USART1_Init(void)
     //...
 ```
 * 첫 번째 TODO를 보니, `USART_InitTypeDef`를 이용해 USART설정을 한 뒤, `USART_Init`으로 초기화를 진행해야 하는 것을 알 수 있었다.
-* 이번에는 미리 작성된 코드가 없기 때문에, `USART_InitTypeDef`의 definition으로 이동하여 어떻게 설정해야하는지 확인해야 했고, BaudRate, WordLength, StopBits, Parity, Mode, HardwareFlowControl을 설정해야 함을 알 수 있었다.
-![](mdimage/8.png)
+* 이번에는 미리 작성된 코드가 없기 때문에, `USART_InitTypeDef`의 definition으로 이동하여 어떻게 설정해야하는지 확인해야 했고, BaudRate, WordLength, StopBits, Parity, Mode, HardwareFlowControl을 설정해야 함을 알 수 있었다.  
+![](mdimage/8.png)  
 * 각 설정에 대한 값들은 주석의 @ref로 표시된 이름을 검색하여 어떤 주소값을 이용해야 되는지 확인했다.
 * 지난 주차에서 USART1 설정을 할 때, WordLength는 8bit, Parity는 None, Tx 및 Rx 활성화, Stop bit는 1bit, CTS 및 RTS는 비활성화 시켰으므로, 이 설정에 맞춰 USART_InitStructure를 설정해주었다. 
 * BaudRate의 경우, Putty의 기본 baud rate가 9600이므로 여기서도 동일하게 9600으로 설정했다.
-* `USART_Init`함수의 경우, 사용 방법을 찾기 위해 main.c에서 `USART_Init`을 입력한 뒤, go to definition으로 이동하여 확인해보니, 매개변수로 `(USART_TypeDef* USARTx, USART_InitTypeDef* USART_InitStruct)`을 받는 것을 알 수 있었다. 두 번째 매개변수의 타입은 `USART_InitTypeDef`의 포인터이므로, 앞서 설정한 InitStructure의 주소값을 넣어주면 됨을 알 수 있었고, 첫 번째 매개변수의 경우, 주석에 있는 @param을 확인하여, USART1,2,3 등의 번호가 들어감을 알 수 있었다. 우리는 USART1을 사용하므로, USART1을 매개변수로 넣어주었다.
-![](mdimage/9.png)
+* `USART_Init`함수의 경우, 사용 방법을 찾기 위해 main.c에서 `USART_Init`을 입력한 뒤, go to definition으로 이동하여 확인해보니, 매개변수로 `(USART_TypeDef* USARTx, USART_InitTypeDef* USART_InitStruct)`을 받는 것을 알 수 있었다. 두 번째 매개변수의 타입은 `USART_InitTypeDef`의 포인터이므로, 앞서 설정한 InitStructure의 주소값을 넣어주면 됨을 알 수 있었고, 첫 번째 매개변수의 경우, 주석에 있는 @param을 확인하여, USART1,2,3 등의 번호가 들어감을 알 수 있었다. 우리는 USART1을 사용하므로, USART1을 매개변수로 넣어주었다.  
+![](mdimage/9.png)  
 ```C
     // TODO: Enable the USART1 RX interrupts using the function 'USART_ITConfig' and the argument value 'Receive Data register not empty interrupt'
 	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);
@@ -164,8 +164,8 @@ void USART1_Init(void)
 * 앞서 EXTI 설정 시, UART GPIO pin은 EXTI로 설정하지 말라는 주석이 있었던 이유가 여기서 interrupt 설정을 하기 때문이었던 것으로 보인다.
 * `USART_ITConfig`을 main.c에서 입력하고, go to definition으로 확인해보니, 매개변수로 `(USART_TypeDef* USARTx, uint16_t USART_IT, FunctionalState NewState)`를 받는 것을 알 수 있었다. 역시 함수 위에 있는 주석의 @param부분을 확인해보니, USARTx는 앞선 함수와 마찬가지로 USART1을, NewState는 interrupt 활성화 여부를 설정해야 하므로 ENABLE로 설정했다. 또한, USART_IT를 확인하니, Receive Data register not empty interrupt에 해당하는 `USART_IT_RXNE`가 있어, 해당 값을 매개변수로 넣어주었다.
 ![](mdimage/10.png)
-* 이 함수의 역할을 reference manual에서 찾기 위해, USART 레지스터 부분을 확인해보니 `USART_SR`레지스터가 CTS, TC, RXNE등의 여러 플래그를 가지고 있는 것을 확인할 수 있었다. 그 중에서, RXNE를 보니, USART통신을 통해 데이터를 받으면 1로 설정되고, 받지 않은 상태면 0으로 설정되는 것으로 보였다. 즉, USART의 경우, GPIO핀처럼 mask register를 통해 인터럽트 발생 여부를 확인하는 것이 아니라 별도의 레지스터를 쓰는 것으로 예상된다.
-![](mdimage/11.png)
+* 이 함수의 역할을 reference manual에서 찾기 위해, USART 레지스터 부분을 확인해보니 `USART_SR`레지스터가 CTS, TC, RXNE등의 여러 플래그를 가지고 있는 것을 확인할 수 있었다. 그 중에서, RXNE를 보니, USART통신을 통해 데이터를 받으면 1로 설정되고, 받지 않은 상태면 0으로 설정되는 것으로 보였다. 즉, USART의 경우, GPIO핀처럼 mask register를 통해 인터럽트 발생 여부를 확인하는 것이 아니라 별도의 레지스터를 쓰는 것으로 예상된다.  
+![](mdimage/11.png)  
 ### 2_5. NVIC 설정
 ```C
 void NVIC_Configure(void) {
