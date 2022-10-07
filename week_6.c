@@ -152,23 +152,20 @@ void NVIC_Configure(void) {
 	// TODO: Initialize the NVIC using the structure 'NVIC_InitTypeDef' and the function 'NVIC_Init'
 	
     // Joystick Down
-    NVIC_EnableIRQ(EXTI2_IRQn);
-    NVIC_InitStructure.NVIC_IRQChannel = EXTI_Line2;
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI2_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0; // TODO
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0; // TODO
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
     // Joystick Up
-    NVIC_EnableIRQ(EXTI9_5_IRQn);
-    NVIC_InitStructure.NVIC_IRQChannel = EXTI_Line5;
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1; // TODO
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1; // TODO
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
     
     // User S1 Button
-    NVIC_EnableIRQ(EXTI15_10_IRQn);
-    NVIC_InitStructure.NVIC_IRQChannel = EXTI_Line11;
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2; // TODO
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 2; // TODO
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
