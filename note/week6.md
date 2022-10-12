@@ -10,7 +10,7 @@
   * sub priority : interrupt처리 대기 중일 때, 어떤 interrupt를 먼저 처리할 지 정하는 우선순위.(ex. 만약, A,B,C의 preemption이 모두 같고, sub priority는 A>B>C라고 가정. A interrupt실행 중 B,C interrupt가 발생했다고 가정. preemption이 모두 같으므로 A interrupt handler가 계속 실행되고 A handler가 끝나면 처리 대기중이던 B, C중 우선순위가 높은 B handler를 먼저 처리함.)
   * `misc.h` 파일에서 우선순위 설정에 관한 설명이 있음.
   * PriorityGroup이 존재. 총 4bit를 이용해 preemption및 sub priority의 우선순위를 할당할 수 있는데, Group에 따라 부여되는 bit수가 달라짐
-  * ex. PriorityGroup1 사용 시, Preemption bit는 1개, Subpriority bit는 3개이므로 preemption은 0~1 우선순위를, subpriority는 0~7까지의 우선순위를 부여할 수 있음.
+  * ex. PriorityGroup1 사용 시, Preemption bit는 1개, Subpriority bit는 3개이므로 preemption은 0\~1 우선순위를, subpriority는 0\~7까지의 우선순위를 부여할 수 있음.
 ## 2. 코드+실험 과정
 * 실험 과정에서, 함수 및 구조체의 정의를 확인할 수 있도록 `Go to Definition of [...]`을 적극적으로 활용함.
 * 정의 및 선언부에서, 주석으로 설명된 부분을 참고해 함수 사용법이나 구조체 설정 방법을 익힘.
