@@ -30,19 +30,19 @@ int buttonStatus = 0;
 void RCC_Configure(void)
 {
 	/* TIM2 Clock enable */
-        RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 	
 	/* Alternate Function IO clock enable */
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
-        RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
 }
 
 void GPIO_Configure(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_3;      // ADC12_IN10
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;       // Analog In
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_3;      // LED1, LED2
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;       // Output mode push pull
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOD, &GPIO_InitStructure);
   
@@ -151,7 +151,7 @@ int main(void)
         LCD_ShowString(80, 100, "But", BLACK, WHITE);
         
         Touch_GetXY(&xpos, &ypos, 1);
-        Convert_Pos(xpos, ypos, &realx, &realy);        // touch adjust ÇÊ¿ä
+        Convert_Pos(xpos, ypos, &realx, &realy);        // touch adjust ï¿½Ê¿ï¿½
         
         if(isOnButton(realx, realy)) {
           buttonStatus = !buttonStatus;

@@ -108,7 +108,7 @@ int main(void)
 
     ADC1_Configure();
     
-    EXTI_Configure();
+    // EXTI_Configure();
 
     NVIC_Configure();
     
@@ -124,7 +124,7 @@ int main(void)
         LCD_ShowString(50, 50, "MON_Team01", BLACK, WHITE);
         
         Touch_GetXY(&xpos, &ypos, 1);
-        Convert_Pos(xpos, ypos, &realx, &realy);        // touch adjust ÇÊ¿ä
+        Convert_Pos(xpos, ypos, &realx, &realy);        // touch adjust ???
         
         LCD_DrawCircle(realx, realy, 10);
         LCD_ShowNum(50, 65, realx, 10, BLACK, WHITE);
