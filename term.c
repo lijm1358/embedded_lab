@@ -47,17 +47,17 @@ int PW_TEST = 1234;
 int code[4]={0,0,0,0};
 int codecount=0;
 
-// 0¿¡¼­ 9±îÁö ¼ýÀÚ Ç¥ÇöÀ» À§ÇÑ ¼¼±×¸ÕÆ® a, b, c, d, e, f, g, dpÀÇ ÆÐÅÏ
+// 0ì—ì„œ 9ê¹Œì§€ ìˆ«ìž í‘œí˜„ì„ ìœ„í•œ ì„¸ê·¸ë¨¼íŠ¸ a, b, c, d, e, f, g, dpì˜ íŒ¨í„´
 uint8_t patterns[] = { 0xFC, 0x60, 0xDA, 0xF2, 0x66, 0xB6, 0xBE, 0xE4, 0xFE, 0xE6};
 
-// segment ¸ðµâ ¿¬°á ÇÉ a, b, c, d, e, f, g, dp
+// segment ëª¨ë“ˆ ì—°ê²° í•€ a, b, c, d, e, f, g, dp
 uint16_t segmentpins[] = {  GPIO_Pin_8,  GPIO_Pin_9, GPIO_Pin_10, GPIO_Pin_11, 
                            GPIO_Pin_12, GPIO_Pin_13, GPIO_Pin_14, GPIO_Pin_15 };
 
-// segment ¸ðµâ ÀÚ¸´¼ö ¼±ÅÃ ÇÉ
+// segment ëª¨ë“ˆ ìžë¦¿ìˆ˜ ì„ íƒ í•€
 uint16_t digit_select_pin[] = { GPIO_Pin_0, GPIO_Pin_1, GPIO_Pin_2, GPIO_Pin_3 };
 
-void RCC_Configure(void) // stm32f10x_rcc.h Au¡Æi
+void RCC_Configure(void) // stm32f10x_rcc.h AuÂ°i
 {
     // clock for ultrasonic distance, keypad
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
@@ -103,21 +103,19 @@ void init_TIM2(void){  // Output compare mode, PWM
     TIM2->CR1 = (1<<0); // Bit 0 CEN
 }
 
-void GPIO_Configure(void) // stm32f10x_gpio.h Au¡Æi
+void GPIO_distance_configure(void) {
+  /* ultrasonic distance */
+  GPIO_DeInit(GPIOA);
+    GPIOA->CRH = (GPIOA->CRH&0xFFFFFF00)|(3<<0*4)|(4<<1*4); // PA8 Trig, PA9 Echo
+}
+
+void GPIO_Configure(void) // stm32f10x_gpio.h AuÂ°i
 {
     GPIO_InitTypeDef GPIO_InitStructure;
-
-    /* ultrasonic distance */
-    GPIO_InitStructure.GPIO_Pin     = GPIO_Pin_8; // PA8(Trig)
-    GPIO_InitStructure.GPIO_Mode    = GPIO_Mode_AF_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin     = GPIO_Pin_9; // PA9(Echo)
-    GPIO_InitStructure.GPIO_Mode    = GPIO_Mode_IN_FLOATING;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-
+    GPIO_DeInit(GPIOA);
+    
     /* keypad */
+    
     GPIO_InitStructure.GPIO_Pin     = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_10; // keypad 3, 1, 5th pin for output(v out)
     GPIO_InitStructure.GPIO_Mode    = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -159,7 +157,7 @@ void GPIO_Configure(void) // stm32f10x_gpio.h Au¡Æi
     for (int i = 0; i < 8; i++) {
 
         GPIO_SetBits(GPIOD, segmentpins[i]);
-    } 
+    }
 }
 
 void delay(int cnt) {
@@ -337,9 +335,36 @@ void move_door(int status) {
   TIM_Cmd(TIM4, ENABLE);
 }
 
+void wait_to_close() {
+    uint16_t distance;
+    GPIO_distance_configure();
+    int closing_count=0;
+    
+    while(1){
+        GPIOA->BSRR = 0x01000100;
+        TIM2->CNT=0; while(TIM2->CNT<12);  // 12us delay
+        GPIOA->BSRR = 0x01000000;
+        while(!(GPIOA->IDR&0x0200));
+        TIM2->CNT=0; while(GPIOA->IDR&0x0200);
+        distance=(TIM2->CNT+1)/58;  // cm
+        if(distance<100) {
+          closing_count++;
+        }
+        else {
+          closing_count=0;
+        }
+        if(closing_count>30) {
+          GPIO_Configure();
+          return;
+        }
+        printf("%d, %d\n", distance, closing_count);
+    }
+}
+
 int main(void)
 {
     RCC_Configure();
+    
 
     GPIO_Configure();
     init_TIM2();
@@ -360,6 +385,8 @@ int main(void)
             if(checkPassword(PW_TEST)) {
                 printf("open\n");
                 move_door(OPEN);
+                wait_to_close();
+                move_door(CLOSE);
             }
             else {
                 printf("wrong\n");
