@@ -24,16 +24,16 @@ void show_4_digit_forcode();
 //int keypad_row[4] = {2,7,6,4};
 
 uint16_t keypad_out_pins[3] = {
-    GPIO_Pin_0,
-    GPIO_Pin_1,
-    GPIO_Pin_10,
+    GPIO_Pin_7,
+    GPIO_Pin_8,
+    GPIO_Pin_9,
 };
 
 uint16_t keypad_in_pins[4] = {
+    GPIO_Pin_10,
     GPIO_Pin_11,
-    GPIO_Pin_7,
-    GPIO_Pin_5,
-    GPIO_Pin_6,
+    GPIO_Pin_12,
+    GPIO_Pin_13,
 };
 
 uint8_t keypad_map[3][4] = { {'1', '4', '7', '*'}, 
@@ -46,6 +46,8 @@ int PW_TEST = 1234;
 
 int code[4]={0,0,0,0};
 int codecount=0;
+
+int threshold = 100;
 
 // 0에서 9까지 숫자 표현을 위한 세그먼트 a, b, c, d, e, f, g, dp의 패턴
 uint8_t patterns[] = { 0xFC, 0x60, 0xDA, 0xF2, 0x66, 0xB6, 0xBE, 0xE4, 0xFE, 0xE6};
@@ -61,6 +63,8 @@ void RCC_Configure(void) // stm32f10x_rcc.h Au°i
 {
     // clock for ultrasonic distance, keypad
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+    
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOE, ENABLE);
 
     /* Alternate Function IO clock enable */
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
@@ -113,22 +117,23 @@ void GPIO_Configure(void) // stm32f10x_gpio.h Au°i
 {
     GPIO_InitTypeDef GPIO_InitStructure;
     GPIO_DeInit(GPIOA);
+    GPIO_DeInit(GPIOE);
     
     /* keypad */
     
-    GPIO_InitStructure.GPIO_Pin     = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_10; // keypad 3, 1, 5th pin for output(v out)
+    GPIO_InitStructure.GPIO_Pin     = GPIO_Pin_7 | GPIO_Pin_8 | GPIO_Pin_9; // keypad 3, 1, 5th pin for output(v out)
     GPIO_InitStructure.GPIO_Mode    = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_Init(GPIOE, &GPIO_InitStructure);
 
     // set column output to 0 
     for(int i=0;i<3;i++) {
         GPIO_ResetBits(GPIOA, keypad_out_pins[i]);
     }
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11 | GPIO_Pin_7 | GPIO_Pin_5 | GPIO_Pin_6; // keypad 2, 7, 6, 4th pin for input(v in)
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10 | GPIO_Pin_11 | GPIO_Pin_12 | GPIO_Pin_13; // keypad 2, 7, 6, 4th pin for input(v in)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD | GPIO_Mode_IPU;
-    GPIO_Init(GPIOA,&GPIO_InitStructure);
+    GPIO_Init(GPIOE,&GPIO_InitStructure);
     
     /* servo motor ??*/
     GPIO_InitStructure.GPIO_Pin     = GPIO_Pin_8;
@@ -172,23 +177,23 @@ void delay(int cnt) {
 char getKeypadInput() {
     while(1) {
         show_4_digit_forcode();
-        GPIO_SetBits(GPIOA, keypad_out_pins[keypad_col_iter]);
+        GPIO_SetBits(GPIOE, keypad_out_pins[keypad_col_iter]);
         delay(10);
         
-        if(GPIO_ReadInputDataBit(GPIOA, keypad_in_pins[0])) {
+        if(GPIO_ReadInputDataBit(GPIOE, keypad_in_pins[0])) {
             return keypad_map[keypad_col_iter][0];
         }
-        else if(GPIO_ReadInputDataBit(GPIOA, keypad_in_pins[1])) {
+        else if(GPIO_ReadInputDataBit(GPIOE, keypad_in_pins[1])) {
             return keypad_map[keypad_col_iter][1];
         }
-        else if(GPIO_ReadInputDataBit(GPIOA, keypad_in_pins[2])) {
+        else if(GPIO_ReadInputDataBit(GPIOE, keypad_in_pins[2])) {
             return keypad_map[keypad_col_iter][2];
         }
-        else if(GPIO_ReadInputDataBit(GPIOA, keypad_in_pins[3])) {
+        else if(GPIO_ReadInputDataBit(GPIOE, keypad_in_pins[3])) {
             return keypad_map[keypad_col_iter][3];
         }
         
-        GPIO_ResetBits(GPIOA, keypad_out_pins[keypad_col_iter]);
+        GPIO_ResetBits(GPIOE, keypad_out_pins[keypad_col_iter]);
         delay(10);
         
         keypad_col_iter++;
@@ -202,16 +207,16 @@ char getKeypadInput() {
  */
 void waitForKeyRelease(char keyin) {
     if(keyin == '1' || keyin == '2' || keyin == '3') {
-      while(GPIO_ReadInputDataBit(GPIOA, keypad_in_pins[0])) {show_4_digit_forcode();};
+      while(GPIO_ReadInputDataBit(GPIOE, keypad_in_pins[0])) {show_4_digit_forcode();};
     }
     if(keyin == '4' || keyin == '5' || keyin == '6') {
-        while(GPIO_ReadInputDataBit(GPIOA, keypad_in_pins[1])){show_4_digit_forcode();};
+        while(GPIO_ReadInputDataBit(GPIOE, keypad_in_pins[1])){show_4_digit_forcode();};
     }
     if(keyin == '7' || keyin == '8' || keyin == '9') {
-        while(GPIO_ReadInputDataBit(GPIOA, keypad_in_pins[2])){show_4_digit_forcode();};
+        while(GPIO_ReadInputDataBit(GPIOE, keypad_in_pins[2])){show_4_digit_forcode();};
     }
     if(keyin == '*' || keyin == '0' || keyin == '#') {
-        while(GPIO_ReadInputDataBit(GPIOA, keypad_in_pins[3])){show_4_digit_forcode();};
+        while(GPIO_ReadInputDataBit(GPIOE, keypad_in_pins[3])){show_4_digit_forcode();};
     }
 }
 
@@ -339,6 +344,7 @@ void wait_to_close() {
     uint16_t distance;
     GPIO_distance_configure();
     int closing_count=0;
+    uint8_t opened = 0;
     
     while(1){
         GPIOA->BSRR = 0x01000100;
@@ -347,7 +353,9 @@ void wait_to_close() {
         while(!(GPIOA->IDR&0x0200));
         TIM2->CNT=0; while(GPIOA->IDR&0x0200);
         distance=(TIM2->CNT+1)/58;  // cm
-        if(distance<100) {
+        if(distance>threshold)
+            opened = 1;
+        if(opened && distance<threshold) {
           closing_count++;
         }
         else {
