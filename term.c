@@ -17,56 +17,68 @@ void GPIO_Configure(void);
 void NVIC_Configure(void);
 void ADC_Configure(void);
 void Delay(void);
-//void show_4_digit(uint16_t number);
 void show_4_digit_forcode();
+void clear_segment(void);
+void lockdown_mode(void);
 
-//int keypad_col[3] = {3,1,5};
-//int keypad_row[4] = {2,7,6,4};
-
+/*int keypad_col[3] = {3,1,5};*/
+/*int keypad_row[4] = {2,7,6,4};*/
+// Keypad output for keypad input iteration
 uint16_t keypad_out_pins[3] = {
     GPIO_Pin_7,
     GPIO_Pin_8,
     GPIO_Pin_9,
 };
-
+// Keypad input
 uint16_t keypad_in_pins[4] = {
     GPIO_Pin_10,
     GPIO_Pin_11,
     GPIO_Pin_12,
     GPIO_Pin_13,
 };
-
+// Keypad mapping with GPIO input and integer number
 uint8_t keypad_map[3][4] = { {'1', '4', '7', '*'}, 
                              {'2', '5', '8', '0'},
                              {'3', '6', '9', '#'} };
-
+// keypad column iterator index
 int keypad_col_iter=0;
 
+// Password constant for test
 int PW_TEST = 1234;
 
+// External password input array
 int code[4]={0,0,0,0};
-int codecount=0;
+int codecount=0; // Code length of externel password input
+int shockcount=0; // Shock counter for lockdown mode
+int wrongcount=0; // wrong password input counter for lockdown mode
 
-int threshold = 100;
+int threshold = 100;// distance threshold to determine closed state
 
-// 0에서 9까지 숫자 표현을 위한 세그먼트 a, b, c, d, e, f, g, dp의 패턴
+// segment patterns for 0 to 9
 uint8_t patterns[] = { 0xFC, 0x60, 0xDA, 0xF2, 0x66, 0xB6, 0xBE, 0xE4, 0xFE, 0xE6};
 
-// segment 모듈 연결 핀 a, b, c, d, e, f, g, dp
+// segment module connection pin a, b, c, d, e, f, g, dp
 uint16_t segmentpins[] = {  GPIO_Pin_8,  GPIO_Pin_9, GPIO_Pin_10, GPIO_Pin_11, 
                            GPIO_Pin_12, GPIO_Pin_13, GPIO_Pin_14, GPIO_Pin_15 };
 
-// segment 모듈 자릿수 선택 핀
+// segment module digit selection pin
 uint16_t digit_select_pin[] = { GPIO_Pin_0, GPIO_Pin_1, GPIO_Pin_2, GPIO_Pin_3 };
 
+
+/**************************************
+ * Initializer for RCC, TIM, GPIO, etc.
+ *
+ * can be used at main start or in function
+ **************************************/ 
 void RCC_Configure(void) // stm32f10x_rcc.h Au°i
 {
-    // clock for ultrasonic distance, keypad
+    // clock for ultrasonic distance
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
     
+    // clock for keypad
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOE, ENABLE);
 
-    /* Alternate Function IO clock enable */
+    // Alternate Function IO clock enable 
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
     
@@ -78,14 +90,7 @@ void RCC_Configure(void) // stm32f10x_rcc.h Au°i
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
 }
 
-void TIM2_IRQHandler(void) {
-  if(TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET) {
-    printf("test\n");
-  }
-  
-  TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
-}
-
+/*
 void initTimer() {
     TIM_TimeBaseInitTypeDef TIM_InitStructure;
     TIM_InitStructure.TIM_Prescaler = 72;
@@ -97,9 +102,12 @@ void initTimer() {
     TIM_ARRPreloadConfig(TIM2, ENABLE);
     TIM_Cmd(TIM2, ENABLE);
     TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
-}
+}*/
 
 void init_TIM2(void){  // Output compare mode, PWM
+    /**
+      * TIM2 Initializer for hypersonic distance sensor
+      */
     RCC->APB1ENR |= (1<<0); // Bit 0 TIM2EN
  
     TIM2->PSC = 72-1;   // 1us
@@ -108,13 +116,22 @@ void init_TIM2(void){  // Output compare mode, PWM
 }
 
 void GPIO_distance_configure(void) {
+    /**
+     * GPIO Initializer for hypersonic distance sensor
+     * 
+     * Called when the locker door is opened. other GPIO settings will be deinitialized.
+     * DOES NOT comparable with GPIO_Configure.
+     */
   /* ultrasonic distance */
   GPIO_DeInit(GPIOA);
     GPIOA->CRH = (GPIOA->CRH&0xFFFFFF00)|(3<<0*4)|(4<<1*4); // PA8 Trig, PA9 Echo
 }
 
-void GPIO_Configure(void) // stm32f10x_gpio.h Au°i
+void GPIO_Configure(void)
 {
+    /**
+     * Universal GPIO settings
+     */
     GPIO_InitTypeDef GPIO_InitStructure;
     GPIO_DeInit(GPIOA);
     GPIO_DeInit(GPIOE);
@@ -163,18 +180,95 @@ void GPIO_Configure(void) // stm32f10x_gpio.h Au°i
 
         GPIO_SetBits(GPIOD, segmentpins[i]);
     }
+    
+    /* shock sensor*/
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD | GPIO_Mode_IPU;
+    GPIO_Init(GPIOB,&GPIO_InitStructure);
 }
 
+void EXTI_Configure(void)
+{
+    /**
+     * EXTI Configuration for shock detection
+     */
+    EXTI_InitTypeDef EXTI_InitStructure;
+	
+    /* shock */
+    GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource6);
+    EXTI_InitStructure.EXTI_Line = EXTI_Line6;
+    EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+    EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+    EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+    EXTI_Init(&EXTI_InitStructure);
+}
+
+void EXTI_Disable(void) {
+    /**
+     * Disable EXTI for shock detection
+     */
+    EXTI_InitTypeDef EXTI_InitStructure;
+	
+    /* shock */
+    GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource6);
+    EXTI_InitStructure.EXTI_Line = EXTI_Line6;
+    EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+    EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+    EXTI_InitStructure.EXTI_LineCmd = DISABLE;
+    EXTI_Init(&EXTI_InitStructure);
+}
+
+void NVIC_Configure(void) {
+    /**
+     * NVIC Configuration for interrupt
+     */
+    NVIC_InitTypeDef NVIC_InitStructure;
+    
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+	
+    // Shock Detected
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+}
+
+void EXTI9_5_IRQHandler(void) {
+   /**
+    * Interrupt handler after the shock detection
+    */
+  if (EXTI_GetITStatus(EXTI_Line6) != RESET) {
+            printf("shock\n");
+            shockcount++;
+  }
+  EXTI_ClearITPendingBit(EXTI_Line6);
+  if(shockcount>30)
+    lockdown_mode();
+}
+
+
 void delay(int cnt) {
+  /**
+   * Pseudo delay
+   */
   for(int i=0;i<cnt;i++) {}
 }
 
-/**
- * Get input from keypad
- * 
- * Program stucks in loop until it gets keypad input.
- */
+
+/**************************************
+ * Fuctions for keypad input
+ *
+ * contains digit code output function for password output
+ * TODO : set timer for 7 segment output
+ **************************************/ 
+
 char getKeypadInput() {
+    /**
+     * Get input from keypad
+     * 
+     * Program stucks in loop until it gets keypad input.
+     */
     while(1) {
         show_4_digit_forcode();
         GPIO_SetBits(GPIOE, keypad_out_pins[keypad_col_iter]);
@@ -202,10 +296,10 @@ char getKeypadInput() {
     }
 }
 
-/**
- * Loop until the pressed key has released.
- */
 void waitForKeyRelease(char keyin) {
+    /**
+     * Loop until the pressed key has released.
+     */
     if(keyin == '1' || keyin == '2' || keyin == '3') {
       while(GPIO_ReadInputDataBit(GPIOE, keypad_in_pins[0])) {show_4_digit_forcode();};
     }
@@ -220,10 +314,10 @@ void waitForKeyRelease(char keyin) {
     }
 }
 
-/**
- * Change numeric character to int
- */
 int charToInt(char c) {
+    /**
+     * Change numeric character to int
+     */
     if(c=='*')
       return 10;
     else if(c=='#')
@@ -232,10 +326,10 @@ int charToInt(char c) {
       return c-'0';
 }
 
-/**
- * check if the input password is same as registered password
- */
 int checkPassword(int pw) {
+    /**
+     * check if the input password is same as registered password
+     */
     for(int i=3;i>=0;i--) {
         if(code[i] != pw%10)
           return 0;
@@ -244,10 +338,13 @@ int checkPassword(int pw) {
     return 1;
 }
 
-/**
- * Display segment with given number seg
- */
+/**************************************
+ * Fuctions for segment output
+ **************************************/
 void segment_out(uint8_t seg) {
+    /**
+     * Display segment with given number seg
+     */
     uint8_t temp = patterns[seg];
     for (int i = 7; i >=0; i--) {
         if ((temp & 0x01) == 0x01) {
@@ -260,10 +357,10 @@ void segment_out(uint8_t seg) {
     }
 }
 
-/**
-  * Display segment with given number and position
-  */
 void show_digit(uint16_t position, uint16_t number) {
+    /**
+      * Display segment with given number and position
+      */
     for (int i = 0; i < 4; i++) {
         if (position == i) {
             GPIO_SetBits(GPIOD, digit_select_pin[i]);
@@ -301,23 +398,35 @@ void show_4_digit(uint16_t number) {
 }*/
 
 void show_4_digit_forcode() {
+    /**
+     * Show 4 digit password code to 7 segment
+     * TODO : don't use
+     */
     for(int i=0;i<codecount;i++) {
         show_digit(i, code[i]);
         delay(10000);
     }
 }
 
-/**
-  * Clear the display out
-  */
 void clear_segment() {
+     /**
+      * Clear the display out
+      */
     GPIO_ResetBits(GPIOD, digit_select_pin[0]);
     GPIO_ResetBits(GPIOD, digit_select_pin[1]);
     GPIO_ResetBits(GPIOD, digit_select_pin[2]);
     GPIO_ResetBits(GPIOD, digit_select_pin[3]);
 }
 
+/**************************************
+ * Fuctions for door open and close
+ **************************************/
 void move_door(int status) {
+   /**
+    * Function to move door using step motor
+    * 
+    * status : OPEN for open door, CLOSE to close door
+    */
   uint16_t prescale = (uint16_t) (SystemCoreClock / 1000000) - 1;
   
   TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
@@ -341,8 +450,16 @@ void move_door(int status) {
 }
 
 void wait_to_close() {
+   /**
+    * Function to wait until the door closed
+    * 
+    * The door open/close state is determined with ultrasonic distance sensor
+    * the sensor does not read distance right after the lock has released
+    * when the distance reached out of the threshold, it begins to read distance
+    */
     uint16_t distance;
     GPIO_distance_configure();
+    EXTI_Disable();
     int closing_count=0;
     uint8_t opened = 0;
     
@@ -362,11 +479,19 @@ void wait_to_close() {
           closing_count=0;
         }
         if(closing_count>30) {
-          GPIO_Configure();
-          return;
+            GPIO_Configure();
+            EXTI_Configure();
+            NVIC_Configure();
+            return;
         }
         printf("%d, %d\n", distance, closing_count);
     }
+}
+
+void lockdown_mode() {
+  printf("lockdown!");
+  clear_segment();
+  while(1) {}
 }
 
 int main(void)
@@ -375,6 +500,10 @@ int main(void)
     
 
     GPIO_Configure();
+    
+    EXTI_Configure();
+    NVIC_Configure();
+    
     init_TIM2();
     
     move_door(CLOSE);
@@ -393,11 +522,16 @@ int main(void)
             if(checkPassword(PW_TEST)) {
                 printf("open\n");
                 move_door(OPEN);
+                shockcount=0;
                 wait_to_close();
                 move_door(CLOSE);
             }
             else {
                 printf("wrong\n");
+                wrongcount++;
+                printf("wrongcount=%d", wrongcount);
+                if(wrongcount==3)
+                  lockdown_mode();
             }
             for(int i=0;i<4;i++) {
                 code[i] = 0;
