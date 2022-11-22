@@ -6,10 +6,12 @@
 #include "lcd.h"
 #include "touch.h"
 #include "misc.h"
+#include "main.h"
 
 #define GPIO_PORT GPIOD
 #define OPEN 1000
 #define CLOSE 2000
+#define MAX_BUFF 15
 
 /* function prototype */
 void RCC_Configure(void);
@@ -51,8 +53,13 @@ int code[4]={0,0,0,0};
 int codecount=0; // Code length of externel password input
 int shockcount=0; // Shock counter for lockdown mode
 int wrongcount=0; // wrong password input counter for lockdown mode
+int lockmode=0;
 
 int threshold = 100;// distance threshold to determine closed state
+
+int picture_mode = 1; //1 to bmp, 0 to jpeg
+
+char usartIn[MAX_BUFF];
 
 // segment patterns for 0 to 9
 uint8_t patterns[] = { 0xFC, 0x60, 0xDA, 0xF2, 0x66, 0xB6, 0xBE, 0xE4, 0xFE, 0xE6};
@@ -88,6 +95,10 @@ void RCC_Configure(void) // stm32f10x_rcc.h Au°i
     
     // clock for seven segment
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
+    
+    /* UART1, 2 TX/RX port clock */
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
 }
 
 /*
@@ -185,6 +196,62 @@ void GPIO_Configure(void)
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD | GPIO_Mode_IPU;
     GPIO_Init(GPIOB,&GPIO_InitStructure);
+    
+    //USART1 TX
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
+    //USART1 RX
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD | GPIO_Mode_IPU;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
+    //USART2 TX(PA2)
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
+    //USART2 RX(PA3)
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD | GPIO_Mode_IPU;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+}
+
+void USART1_Init(void)
+{
+    USART_InitTypeDef USART1_InitStructure;
+
+    USART_Cmd(USART1, ENABLE);
+
+    USART1_InitStructure.USART_BaudRate = 57600;
+    USART1_InitStructure.USART_WordLength = USART_WordLength_8b;
+    USART1_InitStructure.USART_Mode = (USART_Mode_Rx | USART_Mode_Tx);
+    USART1_InitStructure.USART_Parity = USART_Parity_No;
+    USART1_InitStructure.USART_StopBits = USART_StopBits_1;
+    USART1_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+    USART_Init(USART1, &USART1_InitStructure);
+
+    USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);
+}
+
+void USART2_Init(void)
+{
+    USART_InitTypeDef USART2_InitStructure;
+
+    USART_Cmd(USART2, ENABLE);
+
+    USART2_InitStructure.USART_BaudRate = 9600;
+    USART2_InitStructure.USART_WordLength = USART_WordLength_8b;
+    USART2_InitStructure.USART_Mode = (USART_Mode_Rx | USART_Mode_Tx);
+    USART2_InitStructure.USART_Parity = USART_Parity_No;
+    USART2_InitStructure.USART_StopBits = USART_StopBits_1;
+    USART2_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+    USART_Init(USART2, &USART2_InitStructure);
+
+    USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);
 }
 
 void EXTI_Configure(void)
@@ -228,8 +295,24 @@ void NVIC_Configure(void) {
 	
     // Shock Detected
     NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+    
+    // UART1
+    NVIC_EnableIRQ(USART1_IRQn);
+    NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+    
+    // UART2
+    NVIC_EnableIRQ(USART2_IRQn);
+    NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 }
@@ -246,7 +329,28 @@ void EXTI9_5_IRQHandler(void) {
   if(shockcount>30)
     lockdown_mode();
 }
+uint8_t idx=0;
+void USART1_IRQHandler() {
+    uint16_t word;
+    
+    if(USART_GetITStatus(USART1, USART_IT_RXNE)!=RESET){
+        word = USART_ReceiveData(USART1);
+        //USART_SendData(USART2, word);
+        usartIn[idx++] = (char) word;
+    	USART_ClearITPendingBit(USART1,USART_IT_RXNE);
+    }
+    printf("%s\n", usartIn);
+}
 
+void USART2_IRQHandler() {
+    uint16_t word;
+    if(USART_GetITStatus(USART2, USART_IT_RXNE)!=RESET){
+        word = USART_ReceiveData(USART2);
+        USART_SendData(USART1, word);
+
+    	USART_ClearITPendingBit(USART2,USART_IT_RXNE);
+    }
+}
 
 void delay(int cnt) {
   /**
@@ -489,23 +593,111 @@ void wait_to_close() {
 }
 
 void lockdown_mode() {
-  printf("lockdown!");
-  clear_segment();
-  while(1) {}
+    printf("lockdown!\n");
+    if(picture_mode == 0) {
+        SingleCapTransfer();
+        SendbyUSART1(); 
+    } else if(picture_mode == 1) {
+        StartBMPcapture();
+    }
+
+    clear_segment();
+    while(1) {}
+}
+
+void UART_BulkOut(uint32_t len, char *p)
+{
+	uint32_t	cnt =0;
+	
+	for(cnt=0;cnt!=len;cnt++)
+	{	    
+		while(USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+        printf("%c", *p);
+		USART_SendData(USART1, *p);
+		p++;    
+	}
 }
 
 int main(void)
 {
+    uint8_t vid, pid, temp ;
+    uint8_t Camera_WorkMode = 0;
+    uint8_t start_shoot = 0;
+    uint8_t stop = 0;
+    
+    SystemInit();
+    
     RCC_Configure();
     
-
     GPIO_Configure();
     
     EXTI_Configure();
     NVIC_Configure();
+    delay_init();
+    USART1_Init();
+    
+    USART2_Init();
+    
+    ArduCAM_LED_init();
+	ArduCAM_CS_init();
+	sccb_bus_init();
+	SPI1_Init();
     
     init_TIM2();
     
+    while(1)
+    {
+        write_reg(ARDUCHIP_TEST1, 0x55);
+        temp = read_reg(ARDUCHIP_TEST1);
+        if (temp != 0x55)
+        {
+            printf("ACK CMD SPI interface Error!\n");
+            delay_ms(1000);
+            continue;
+        }
+        else
+        {
+            printf("ACK CMD SPI interface OK!\r\n");
+            break;
+        }
+    }
+    while(1)
+    {
+        sensor_addr = 0x60;
+        wrSensorReg8_8(0xff, 0x01);
+        rdSensorReg8_8(OV2640_CHIPID_HIGH, &vid);
+        rdSensorReg8_8(OV2640_CHIPID_LOW, &pid);
+        if ((vid != 0x26 ) && (( pid != 0x41 ) || ( pid != 0x42 )))
+            printf("ACK CMD Can't find OV2640 module!\r\n");
+        else
+        {
+          sensor_model =  OV2640 ;
+          printf("ACK CMD OV2640 detected.\r\n");   
+          break;
+        }
+    }  
+    //Support OV2640/OV5640/OV5642 Init
+    ArduCAM_Init(sensor_model);
+    
+    if(picture_mode == 0) {
+        OV2640_set_JPEG_size(OV2640_160x120);
+        printf("ACK CMD switch to OV2640_160x120\r\n");
+        set_format(JPEG);
+        ArduCAM_Init(sensor_model);
+        #if !defined(OV2640)
+            set_bit(ARDUCHIP_TIM,VSYNC_MASK);
+        #endif
+    } else if(picture_mode == 1) {
+        set_format(BMP);
+        ArduCAM_Init(sensor_model);
+        if(sensor_model != OV2640)
+        {
+            clear_bit(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);
+        }
+        wrSensorReg16_8(0x3818,0x81);
+        wrSensorReg16_8(0x3621,0xa7);		
+        printf("ACK CMD SetToBMP \r\n");
+    }
     move_door(CLOSE);
 
     char keyin;
@@ -528,6 +720,7 @@ int main(void)
             }
             else {
                 printf("wrong\n");
+                UART_BulkOut(6, "wrong\0");
                 wrongcount++;
                 printf("wrongcount=%d", wrongcount);
                 if(wrongcount==3)
