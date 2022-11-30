@@ -22,6 +22,8 @@ void Delay(void);
 void show_4_digit_forcode();
 void clear_segment(void);
 void lockdown_mode(void);
+void cam_init(void);
+void UART_BulkOut(uint32_t, char *);
 
 /*int keypad_col[3] = {3,1,5};*/
 /*int keypad_row[4] = {2,7,6,4};*/
@@ -57,9 +59,11 @@ int lockmode=0;
 
 int threshold = 100;// distance threshold to determine closed state
 
-int picture_mode = 1; //1 to bmp, 0 to jpeg
+int picture_mode = 0; //1 to bmp, 0 to jpeg
 
 char usartIn[MAX_BUFF];
+
+int unlock = 0;
 
 // segment patterns for 0 to 9
 uint8_t patterns[] = { 0xFC, 0x60, 0xDA, 0xF2, 0x66, 0xB6, 0xBE, 0xE4, 0xFE, 0xE6};
@@ -243,7 +247,7 @@ void USART2_Init(void)
 
     USART_Cmd(USART2, ENABLE);
 
-    USART2_InitStructure.USART_BaudRate = 9600;
+    USART2_InitStructure.USART_BaudRate = 57600;
     USART2_InitStructure.USART_WordLength = USART_WordLength_8b;
     USART2_InitStructure.USART_Mode = (USART_Mode_Rx | USART_Mode_Tx);
     USART2_InitStructure.USART_Parity = USART_Parity_No;
@@ -304,7 +308,7 @@ void NVIC_Configure(void) {
     NVIC_EnableIRQ(USART1_IRQn);
     NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
     
@@ -312,7 +316,7 @@ void NVIC_Configure(void) {
     NVIC_EnableIRQ(USART2_IRQn);
     NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 }
@@ -330,27 +334,38 @@ void EXTI9_5_IRQHandler(void) {
     lockdown_mode();
 }
 uint8_t idx=0;
+/*
 void USART1_IRQHandler() {
     uint16_t word;
     
     if(USART_GetITStatus(USART1, USART_IT_RXNE)!=RESET){
         word = USART_ReceiveData(USART1);
-        //USART_SendData(USART2, word);
-        usartIn[idx++] = (char) word;
+        USART_SendData(USART2, word);
     	USART_ClearITPendingBit(USART1,USART_IT_RXNE);
     }
-    printf("%s\n", usartIn);
-}
+}*/
 
 void USART2_IRQHandler() {
     uint16_t word;
     if(USART_GetITStatus(USART2, USART_IT_RXNE)!=RESET){
         word = USART_ReceiveData(USART2);
+        if(word == 'c')
+            unlock = 1;
         USART_SendData(USART1, word);
 
     	USART_ClearITPendingBit(USART2,USART_IT_RXNE);
     }
 }
+
+/*
+void USART1_IRQHandler() {
+    uint16_t word;
+    if(USART_GetITStatus(USART1, USART_IT_RXNE)!=RESET){
+        word = USART_ReceiveData(USART1);
+        USART_SendData(USART2, word);
+    	USART_ClearITPendingBit(USART1,USART_IT_RXNE);
+    }
+}*/
 
 void delay(int cnt) {
   /**
@@ -508,7 +523,7 @@ void show_4_digit_forcode() {
      */
     for(int i=0;i<codecount;i++) {
         show_digit(i, code[i]);
-        delay(10000);
+        delay_ms(1);
     }
 }
 
@@ -566,6 +581,9 @@ void wait_to_close() {
     EXTI_Disable();
     int closing_count=0;
     uint8_t opened = 0;
+    clear_segment();
+    
+    
     
     while(1){
         GPIOA->BSRR = 0x01000100;
@@ -586,6 +604,12 @@ void wait_to_close() {
             GPIO_Configure();
             EXTI_Configure();
             NVIC_Configure();
+            
+            UART_BulkOut(7, "closees");
+            
+            wrongcount = 0;
+            shockcount = 0;
+            
             return;
         }
         printf("%d, %d\n", distance, closing_count);
@@ -593,16 +617,36 @@ void wait_to_close() {
 }
 
 void lockdown_mode() {
+    EXTI_Disable();
+    unlock = 0;
+    
     printf("lockdown!\n");
+    UART_BulkOut(10, "lockdownes");
+    
+    delay_ms(1000);
+    
+    cam_init();
+    OV2640_set_JPEG_size(OV2640_160x120);
+	printf("ACK CMD switch to OV2640_160x120\r\n");
+    delay_ms(1000);
     if(picture_mode == 0) {
         SingleCapTransfer();
         SendbyUSART1(); 
+        UART_BulkOut(2, "es");
     } else if(picture_mode == 1) {
         StartBMPcapture();
     }
 
     clear_segment();
-    while(1) {}
+    
+    while(!unlock) {};
+    
+    unlock = 0;
+    printf("unlock\n");
+    
+    wrongcount=0;
+    shockcount=0;
+    EXTI_Configure();
 }
 
 void UART_BulkOut(uint32_t len, char *p)
@@ -611,40 +655,22 @@ void UART_BulkOut(uint32_t len, char *p)
 	
 	for(cnt=0;cnt!=len;cnt++)
 	{	    
-		while(USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
-        printf("%c", *p);
-		USART_SendData(USART1, *p);
+		while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
+        //printf("%c", *p);
+		USART_SendData(USART2, *p);
+        delay_us(100);
 		p++;    
 	}
 }
 
-int main(void)
-{
+void cam_init(void) {
     uint8_t vid, pid, temp ;
-    uint8_t Camera_WorkMode = 0;
-    uint8_t start_shoot = 0;
-    uint8_t stop = 0;
-    
-    SystemInit();
-    
-    RCC_Configure();
-    
-    GPIO_Configure();
-    
-    EXTI_Configure();
-    NVIC_Configure();
-    delay_init();
-    USART1_Init();
-    
-    USART2_Init();
     
     ArduCAM_LED_init();
 	ArduCAM_CS_init();
 	sccb_bus_init();
 	SPI1_Init();
-    
-    init_TIM2();
-    
+
     while(1)
     {
         write_reg(ARDUCHIP_TEST1, 0x55);
@@ -676,12 +702,9 @@ int main(void)
           break;
         }
     }  
-    //Support OV2640/OV5640/OV5642 Init
     ArduCAM_Init(sensor_model);
     
     if(picture_mode == 0) {
-        OV2640_set_JPEG_size(OV2640_160x120);
-        printf("ACK CMD switch to OV2640_160x120\r\n");
         set_format(JPEG);
         ArduCAM_Init(sensor_model);
         #if !defined(OV2640)
@@ -698,6 +721,25 @@ int main(void)
         wrSensorReg16_8(0x3621,0xa7);		
         printf("ACK CMD SetToBMP \r\n");
     }
+}
+
+int main(void)
+{
+    SystemInit();
+    
+    RCC_Configure();
+    
+    GPIO_Configure();
+    
+    EXTI_Configure();
+    NVIC_Configure();
+    delay_init();
+    USART1_Init();
+    
+    USART2_Init();
+    
+    init_TIM2();
+
     move_door(CLOSE);
 
     char keyin;
@@ -713,6 +755,7 @@ int main(void)
             waitForKeyRelease(keyin);
             if(checkPassword(PW_TEST)) {
                 printf("open\n");
+                UART_BulkOut(8, "openes");
                 move_door(OPEN);
                 shockcount=0;
                 wait_to_close();
@@ -720,7 +763,6 @@ int main(void)
             }
             else {
                 printf("wrong\n");
-                UART_BulkOut(6, "wrong\0");
                 wrongcount++;
                 printf("wrongcount=%d", wrongcount);
                 if(wrongcount==3)
